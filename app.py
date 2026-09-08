@@ -15,16 +15,22 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from dataclasses import asdict
+
 from feasibility_ai.engine import analyze, ProjectParams
 from feasibility_ai.llm import LLMClient
 from feasibility_ai.knowledge import KnowledgeBase, DocumentParseError
 from feasibility_ai.workflow.report import ReportPipeline
 from feasibility_ai.reports import markdown_to_docx
+from feasibility_ai.archive import list_projects, save_project, load_project
+from feasibility_ai.qa import quality_card
 
 UPLOAD_DIR = Path("data/uploaded")
 EXPORT_DIR = Path("data/exported")
+PROJECTS_DIR = Path("data/projects")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------- 配置探测（不改 .env 也能知道缺什么）----------
 def ai_status() -> dict:
@@ -34,20 +40,23 @@ def ai_status() -> dict:
 
 
 def cfg_banner(need: str) -> None:
-    """need: 'llm' 或 'embed' 或 'both'，输出配置引导。"""
+    """need: 'llm' 或 'embed' 或 'both'，按缺什么给对应提示。"""
     s = ai_status()
-    missing = []
     if need in ("llm", "both") and not s["llm"]:
-        missing.append("LLM_BASE_URL / LLM_API_KEY / LLM_MODEL（DeepSeek）")
-    if need in ("embed", "both") and not s["embed"]:
-        missing.append("EMBED_BASE_URL / EMBED_API_KEY（硅基流动 BGE）")
-    if not missing:
+        st.warning(
+            "🔑 未配置 DeepSeek（LLM_API_KEY）：标签② AI 报告与③ 资料问答暂不可用，"
+            "① 财务测算不受影响。\n\n"
+            "操作：把项目根目录 `.env.example` 复制为 `.env`，填入 LLM_API_KEY（DeepSeek）后重启应用。"
+        )
         return
-    st.warning(
-        "🔑 未检测到 AI 配置：" + "、".join(missing) +
-        "。\n\n操作:把项目根目录 `.env.example` 复制为 `.env` 并填入 Key 后重启应用。"
-        "（左侧②③功能暂不可用，①财务测算不受影响。）"
-    )
+    if need in ("embed", "both") and not s["embed"]:
+        st.info(
+            "ℹ️ 标签③「上传资料问答」是**可选功能**，需要额外的向量化（Embedding）服务。\n\n"
+            "当前 DeepSeek 已就绪——**标签② AI 可研报告完全可用**，不需要任何额外配置。\n\n"
+            "以后想启用③时（可选）：在 `.env` 中取消注释 `EMBED_BASE_URL / EMBED_API_KEY / "
+            "EMBED_MODEL` 三行并填入任一国内平台的 Embedding 接口（推荐硅基流动 BGE 免费档；"
+            "智谱、通义、百度等均可），重启应用即可。"
+        )
 
 
 # ---------- 格式化 ----------
@@ -61,6 +70,69 @@ def fmt_pct(v, d: int = 1) -> str:
 
 def fmt_years(v) -> str:
     return "超出计算期" if v is None else f"{v:.2f} 年"
+
+
+# ---------- 项目档案（记忆系统：本地存档/载入）----------
+# 引擎属性 → (界面控件 key, 百分比换算因子)；factor 为 100 表示控件存的是百分比
+PARAM_WIDGET_KEYS = {
+    "name": ("in_name", None),
+    "calc_years": ("in_years", None),
+    "discount_rate": ("in_rate", 100.0),
+    "initial_investment": ("in_invest", None),
+    "working_capital": ("in_wc", None),
+    "first_year_revenue": ("in_revenue", None),
+    "revenue_growth": ("in_growth", 100.0),
+    "variable_cost_rate": ("in_vcr", 100.0),
+    "fixed_operating_cost": ("in_fixed", None),
+    "depreciation_years": ("in_dep_years", None),
+    "salvage_rate": ("in_salvage", 100.0),
+    "tax_rate": ("in_tax", 100.0),
+    "annual_volume": ("in_volume", None),
+    "unit_price": ("in_price", None),
+}
+
+
+def apply_widget_values(params: dict) -> None:
+    """把档案里的引擎参数(小数域)写回界面控件(百分比域)。"""
+    for attr, (key, factor) in PARAM_WIDGET_KEYS.items():
+        if attr not in params:
+            continue
+        v = params[attr]
+        if factor:
+            v = v * factor
+        if isinstance(v, float) and attr in ("calc_years", "depreciation_years"):
+            v = int(v)
+        st.session_state[key] = v
+
+
+def archive_controls() -> None:
+    """顶部栏：载入历史项目 / 保存当前项目（记忆系统入口）。"""
+    projects = list_projects(PROJECTS_DIR)
+    labels = {f"{it['name']}（{it['saved_at'][:16].replace('T', ' ')}）": it["file"]
+              for it in projects}
+
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        sel = st.selectbox("📂 项目档案：载入历史项目", ["（不载入）", *labels],
+                           key="archive_select")
+        applied = st.session_state.get("archive_applied", "（不载入）")
+        if sel != "（不载入）" and sel != applied:
+            try:
+                data = load_project(PROJECTS_DIR, labels[sel])
+                apply_widget_values(data["params"])
+                st.session_state["archive_applied"] = sel
+                st.success(f"已载入项目：{data['name']}")
+            except Exception as e:
+                st.error(f"载入失败：{e}")
+        elif sel == "（不载入）":
+            st.session_state["archive_applied"] = "（不载入）"
+        if applied != "（不载入）":
+            st.caption(f"当前档案：{applied}（改动后请重新保存）")
+    with c2:
+        if st.button("💾 保存当前项目为档案"):
+            p = build_params()
+            save_project(PROJECTS_DIR, p.name, asdict(p))
+            st.success(f"已保存档案：{p.name}")
 
 
 # ---------- 参数与测算 ----------
@@ -120,14 +192,34 @@ GLOSSARY = {
 
 def chart_cashflow(r: dict) -> go.Figure:
     fig = go.Figure()
-    fig.add_bar(x=r["periods"], y=r["ncf"], name="各年净现金流", marker_color="#4C78A8")
-    fig.add_scatter(x=r["periods"], y=r["cumulative_ncf"], name="累计(静态)",
-                    mode="lines+markers", line=dict(color="#F58518", width=3))
-    fig.add_scatter(x=r["periods"], y=r["discounted_cumulative"], name="累计(折现)",
-                    mode="lines+markers", line=dict(color="#54A24B", width=3, dash="dash"))
+    fig.add_bar(
+        x=r["periods"], y=r["ncf"], name="各年净现金流", marker_color="#4C78A8",
+        hovertemplate="年份 %{x} 年<br>净现金流：%{y:,.0f} 元<extra></extra>",
+    )
+    fig.add_scatter(
+        x=r["periods"], y=r["cumulative_ncf"], name="累计(静态)",
+        mode="lines+markers", line=dict(color="#F58518", width=3),
+        hovertemplate="年份 %{x} 年<br>累计(静态)：%{y:,.0f} 元<extra></extra>",
+    )
+    fig.add_scatter(
+        x=r["periods"], y=r["discounted_cumulative"], name="累计(折现)",
+        mode="lines+markers", line=dict(color="#54A24B", width=3, dash="dash"),
+        hovertemplate="年份 %{x} 年<br>累计(折现)：%{y:,.0f} 元<extra></extra>",
+    )
     fig.add_hline(y=0, line_dash="dot", line_color="gray")
-    fig.update_layout(title="逐年现金流与累计回本", xaxis_title="年份 t",
-                      yaxis_title="元", height=360, legend=dict(orientation="h"))
+    fig.update_layout(
+        title=dict(text="逐年现金流与累计回本", x=0.0),
+        xaxis_title=dict(text="年份 t（年）", standoff=18),
+        yaxis_title=dict(text="金额（元）", standoff=10),
+        height=500,
+        hovermode="x unified",
+        font=dict(size=14),
+        # 大留白：底部给足空间，x 轴刻度不再贴边
+        margin=dict(l=85, r=35, t=115, b=105),
+        legend=dict(orientation="h", yanchor="bottom", y=1.05,
+                    xanchor="left", x=0.02, font=dict(size=13)),
+        bargap=0.25,
+    )
     return fig
 
 
@@ -138,12 +230,20 @@ def chart_tornado(rows: list) -> go.Figure:
     top = [r["plus20"] for r in rows]
     fig = go.Figure(go.Bar(
         orientation="h", y=labels, x=width, base=base, marker_color="#E45756",
+        customdata=[[b, t] for b, t in zip(base, top)],
+        hovertemplate=(
+            "%{y}<br>NPV 变动范围：%{customdata[0]:,.0f} ~ %{customdata[1]:,.0f} 元"
+            "<extra>敏感性分析</extra>"
+        ),
         text=[f"{b / 10000:+.0f} ~ {t / 10000:+.0f} 万" for b, t in zip(base, top)],
         textposition="outside",
     ))
     fig.add_vline(x=0, line_dash="dot", line_color="gray")
-    fig.update_layout(title="敏感性：参数 ±20% 对 NPV 的影响",
-                      height=300, showlegend=False)
+    fig.update_layout(
+        title=dict(text="敏感性：参数 ±20% 对 NPV 的影响", x=0.0),
+        xaxis_title="NPV 变动（元）", height=360, showlegend=False,
+        font=dict(size=14), margin=dict(l=30, r=60, t=90, b=80),
+    )
     return fig
 
 
@@ -153,10 +253,15 @@ def chart_scenarios(scenarios: list) -> go.Figure:
         x=[s["情景"] for s in scenarios],
         y=[s["npv"] for s in scenarios],
         marker_color=[colors[s["情景"]] for s in scenarios],
+        hovertemplate="%{x}情景 NPV：%{y:,.0f} 元<extra>三情景对比</extra>",
         text=[f"{s['npv'] / 10000:,.0f} 万" for s in scenarios],
         textposition="outside",
     ))
-    fig.update_layout(title="三情景 NPV 对比", height=300, yaxis_title="NPV（元）")
+    fig.update_layout(
+        title=dict(text="三情景 NPV 对比", x=0.0),
+        yaxis_title="NPV（元）", height=360, font=dict(size=14),
+        margin=dict(l=85, r=35, t=90, b=80),
+    )
     return fig
 
 
@@ -243,6 +348,16 @@ def _show_audit(audit) -> None:
         st.info("(AI 未提出额外疑问）")
 
 
+def _render_qcard(card: dict) -> None:
+    """把质检卡渲染成界面上的折叠面板。"""
+    icons = {"pass": "✅", "warn": "⚠️", "fail": "❌", "na": "➖", "info": "ℹ️"}
+    line = (f"通过 {card['n_pass']} 项 ｜ 提示 {card['n_warn']} 项 ｜ "
+            f"未过 {card['n_fail']} 项")
+    st.markdown(f"**{line}**（机器客观检查；语义质量请人工判断）")
+    for c in card["checks"]:
+        st.markdown(f"- {icons.get(c['status'], '•')} **{c['name']}**：{c['detail']}")
+
+
 def tab_ai_report(p: ProjectParams, r: dict) -> None:
     st.markdown("生成流程：**AI 假设审核 → 财务章节（代码生成）→ 市场/风险（AI 执笔）→ 结论（规则判定）**。")
     cfg_banner("llm")
@@ -275,10 +390,13 @@ def tab_ai_report(p: ProjectParams, r: dict) -> None:
                  disabled=llm is None):
         with st.spinner("AI 正在撰写……（假设审核 → 市场 → 风险）"):
             try:
-                pipe = ReportPipeline(client=llm, kb=get_kb())
+                kb = get_kb()
+                had_kb = bool(kb and kb.chunk_count)  # 质检"引用"项的前提
+                pipe = ReportPipeline(client=llm, kb=kb)
                 out = pipe.generate(p)
                 st.session_state.report = out
                 st.session_state.report_err = None
+                st.session_state.qcard = quality_card(out, had_kb)
                 # 顺带生成 Word 版（存字节，供下载按钮使用）
                 tmp = EXPORT_DIR / f"_report_tmp_{abs(hash(p.name))}.docx"
                 markdown_to_docx(out["report_markdown"], tmp)
@@ -302,6 +420,10 @@ def tab_ai_report(p: ProjectParams, r: dict) -> None:
                 file_name=f"可研报告_{p.name}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
+        _qcard = st.session_state.get("qcard")
+        if _qcard and _qcard.get("checks"):
+            with st.expander("🧾 质检卡（客观检查）", expanded=True):
+                _render_qcard(_qcard)
         with st.expander("🧐 AI 假设审核意见（人机协作第一步）", expanded=True):
             _show_audit(out["audit"])
         st.markdown(out["report_markdown"])
@@ -364,9 +486,21 @@ def tab_rag() -> None:
 
 def render() -> None:
     st.set_page_config(page_title="FeasAI · 可研助手", page_icon="📊", layout="wide")
+    # 报告正文统一宋体（用户要求）
+    st.html("""
+        <style>
+          .stMarkdown, .stMarkdown p, .stMarkdown li,
+          .stMarkdown td, .stMarkdown th, .stMarkdown strong,
+          .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
+            font-family: 'SimSun', '宋体', 'Songti SC', serif !important;
+          }
+        </style>
+    """)
     st.title("📊 FeasAI · 项目可行性研究 AI 助手")
     st.caption("财务引擎真算 + AI 辅助报告：数字由引擎计算，绝不 AI 编造。"
                "项目文档见 docs/；本项目为个人作品（AI 辅助开发）。")
+
+    archive_controls()
 
     params_editor()
 

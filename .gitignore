@@ -11,6 +11,8 @@ __pycache__/
 # 数据与日志
 data/uploaded/
 data/outputs/
+data/projects/
+data/exported/
 *.log
 
 # 系统
