@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FeasAI · 项目可行性研究 AI 助手</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#ffffff; --ink:#1f2329; --sub:#646a73;
+    --line:#e5e6eb; --brand:#2f6fed; --ok:#2ba471;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.7;
+  }
+  .wrap{max-width:960px; margin:0 auto; padding:48px 20px 64px;}
+  header.hero{text-align:center; padding:28px 0 20px;}
+  .badge{
+    display:inline-block; font-size:13px; color:var(--brand);
+    border:1px solid var(--brand); border-radius:999px; padding:2px 12px; margin-bottom:16px;
+  }
+  h1{font-size:34px; font-weight:700;}
+  .tagline{margin-top:10px; font-size:16px; color:var(--sub); max-width:640px; margin-left:auto; margin-right:auto;}
+  .author{margin-top:14px; font-size:14px; color:var(--sub);}
+  .author a{color:var(--brand); text-decoration:none;}
+  .stats{display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin:24px 0 8px;}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 18px; min-width:120px;}
+  .stat b{display:block; font-size:20px;}
+  .stat span{font-size:12px; color:var(--sub);}
+  section{margin-top:36px;}
+  h2{font-size:20px; margin-bottom:14px; padding-left:10px; border-left:4px solid var(--brand);}
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px;}
+  .card h3{font-size:15px; margin-bottom:6px;}
+  .card p{font-size:13.5px; color:var(--sub);}
+  .steps{counter-reset:step;}
+  .steps li{list-style:none; background:var(--card); border:1px solid var(--line);
+    border-radius:12px; padding:14px 18px; margin-bottom:10px; position:relative; padding-left:52px;}
+  .steps li::before{counter-increment:step; content:counter(step);
+    position:absolute; left:16px; top:14px; width:24px; height:24px; border-radius:50%;
+    background:var(--brand); color:#fff; text-align:center; line-height:24px; font-size:13px;}
+  .chips{display:flex; flex-wrap:wrap; gap:8px;}
+  .chips span{background:var(--card); border:1px solid var(--line); border-radius:999px; padding:4px 12px; font-size:13px; color:var(--ink);}
+  .shots{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px;}
+  .shot{background:var(--card); border:1px dashed var(--line); border-radius:12px; min-height:150px;
+    display:flex; align-items:center; justify-content:center; color:var(--sub); font-size:13px; text-align:center; padding:12px;}
+  footer{margin-top:44px; border-top:1px solid var(--line); padding-top:18px; font-size:13px; color:var(--sub); text-align:center;}
+  footer a{color:var(--brand); text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="badge">个人项目 · 2026 · AI 辅助开发</span>
+    <h1>FeasAI · 项目可行性研究 AI 助手</h1>
+    <p class="tagline">给不会算账的创业者一个"算得对、可复算"的可研工具：填参数 → AI 先质疑假设 → 引擎真算 NPV / IRR → 生成带引用的完整报告。</p>
+    <p class="author">作者：涂力文 · 四川农业大学 技术经济及管理 硕士在读 ｜
+      <a href="https://github.com/jtmlsty9917/feasibility-ai" target="_blank" rel="noopener">GitHub 仓库（源代码）</a></p>
+    <div class="stats">
+      <div class="stat"><b>41</b><span>项单元测试全过</span></div>
+      <div class="stat"><b>≈24 秒</b><span>生成一份完整报告</span></div>
+      <div class="stat"><b>≈2,400</b><span>tokens / 成本几分钱</span></div>
+      <div class="stat"><b>0</b><span>由 AI 编造的财务数字</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>核心设计</h2>
+    <div class="cards">
+      <div class="card"><h3>AI 不碰数字</h3><p>NPV、IRR、回收期等全部由自研 Python 财务引擎计算，大模型只负责写市场 / 风险章节——从架构上杜绝编数。</p></div>
+      <div class="card"><h3>报告可复算</h3><p>改一个参数，指标、图表、相关章节全部联动重算，每个数字都能追回引擎和假设表。</p></div>
+      <div class="card"><h3>先审核，再出报告</h3><p>AI 先以可研专家视角质疑你的假设，你采纳或反驳后再生成——人机协作，不是一键生成完事。</p></div>
+      <div class="card"><h3>资料问答带引用</h3><p>上传研报 / 政策，回答带 [来源] 原文引用，论断可溯源核对。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>怎么用（三步）</h2>
+    <ul class="steps">
+      <li>输入项目参数：建设投资、首年收入、固定成本、折旧年限、残值率、税率等</li>
+      <li>AI 审核假设并提问（例如"首年收入按什么客流算的？淡季考虑了吗"），你选择采纳或修改</li>
+      <li>引擎真算并生成完整可研报告，可导出 Word；还能上传资料做带引用问答</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>截图（待补充）</h2>
+    <div class="shots">
+      <div class="shot">① 财务测算页截图<br>（放到 assets/demo-1.png 后在此显示）</div>
+      <div class="shot">② AI 报告页截图<br>（assets/demo-2.png）</div>
+      <div class="shot">③ 资料问答截图<br>（assets/demo-3.png）</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>技术栈</h2>
+    <div class="chips">
+      <span>Python</span><span>Streamlit</span><span>Plotly</span><span>pandas</span>
+      <span>自研财务引擎</span><span>RAG · numpy 向量检索</span>
+      <span>DeepSeek / SiliconFlow（OpenAI 兼容 API）</span><span>pytest</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>验证与说明</h2>
+    <div class="cards">
+      <div class="card"><h3>可信靠证据</h3><p>财务公式用手算例题对照测试锁定；真实调用 DeepSeek 做过"好项目 / 注定亏损项目"两场景冒烟，风险章节引用数字与引擎输出一致。</p></div>
+      <div class="card"><h3>成本可控</h3><p>单份完整报告实测约 2,300~2,700 tokens，成本几分钱——只让模型写必要章节，财务计算不走大模型。</p></div>
+      <div class="card"><h3>如实说明</h3><p>作品定位为 MVP：未做真实用户规模化验证，市场 / 政策内容依赖用户上传资料与模型知识，不构成投资建议。</p></div>
+    </div>
+  </section>
+
+  <footer>
+    FeasAI · 个人作品，AI 辅助开发（作者负责产品设计 / 业务口径 / 验收）<br>
+    GitHub：<a href="https://github.com/jtmlsty9917/feasibility-ai" target="_blank" rel="noopener">github.com/jtmlsty9917/feasibility-ai</a>
+  </footer>
+
+</div>
+</body>
+</html>
