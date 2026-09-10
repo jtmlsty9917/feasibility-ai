@@ -45,6 +45,15 @@
   .shots{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px;}
   .shot{background:var(--card); border:1px dashed var(--line); border-radius:12px; min-height:150px;
     display:flex; align-items:center; justify-content:center; color:var(--sub); font-size:13px; text-align:center; padding:12px;}
+  .shot img{cursor:zoom-in; transition:transform .15s ease; border-radius:8px;}
+  .shot img:hover{transform:scale(1.02);}
+  .lightbox{position:fixed; inset:0; background:rgba(0,0,0,.85); display:none;
+    align-items:center; justify-content:center; z-index:9999; cursor:zoom-out; padding:24px;}
+  .lightbox.open{display:flex;}
+  .lightbox img{max-width:95vw; max-height:92vh; border-radius:8px; box-shadow:0 12px 40px rgba(0,0,0,.5);}
+  .video-box{position:relative; padding-bottom:56.25%; height:0; overflow:hidden;
+    max-width:820px; margin:0 auto; border-radius:12px; background:#000;}
+  .video-box iframe{position:absolute; top:0; left:0; width:100%; height:100%; border:0;}
   footer{margin-top:44px; border-top:1px solid var(--line); padding-top:18px; font-size:13px; color:var(--sub); text-align:center;}
   footer a{color:var(--brand); text-decoration:none;}
 </style>
@@ -86,12 +95,45 @@
   </section>
 
   <section>
-    <h2>截图（待补充）</h2>
+    <h2>演示截图（点击图片可放大）</h2>
     <div class="shots">
-      <div class="shot">① 财务测算页截图<br>（放到 assets/demo-1.png 后在此显示）</div>
-      <div class="shot">② AI 报告页截图<br>（assets/demo-2.png）</div>
-      <div class="shot">③ 资料问答截图<br>（assets/demo-3.png）</div>
+      <div class="shot" style="flex-direction:column;gap:6px;padding:10px;">
+        <a class="lb" href="assets/demo-1.png" title="点击放大">
+          <img src="assets/demo-1.png" alt="① 财务测算页截图"
+               onerror="this.parentElement.style.display='none'"
+               style="width:100%;height:auto;">
+        </a>
+        <span>① 财务测算页（指标卡 + 现金流图）</span>
+      </div>
+      <div class="shot" style="flex-direction:column;gap:6px;padding:10px;">
+        <a class="lb" href="assets/demo-2.png" title="点击放大">
+          <img src="assets/demo-2.png" alt="② AI 报告页截图"
+               onerror="this.parentElement.style.display='none'"
+               style="width:100%;height:auto;">
+        </a>
+        <span>② AI 可研报告（报告 + 质检卡）</span>
+      </div>
+      <div class="shot" style="flex-direction:column;gap:6px;padding:10px;">
+        <a class="lb" href="assets/demo-3.png" title="点击放大">
+          <img src="assets/demo-3.png" alt="③ 资料问答截图"
+               onerror="this.parentElement.style.display='none'"
+               style="width:100%;height:auto;">
+        </a>
+        <span>③ 资料问答（带引用回答）</span>
+      </div>
     </div>
+  </section>
+
+  <section>
+    <h2>演示视频 · B 站</h2>
+    <p style="color:var(--sub);font-size:14px;margin-bottom:12px;">完整演示：填参数 → AI 假设审核 → 引擎真算 → 生成报告 → 资料问答。</p>
+    <div class="video-box">
+      <iframe src="//player.bilibili.com/player.html?bvid=BV1RPYT6bEux&page=1&high_quality=1&danmaku=0"
+              scrolling="no" frameborder="no" framespacing="0" allowfullscreen="true"
+              title="FeasAI 演示视频"></iframe>
+    </div>
+    <p style="color:var(--sub);font-size:13px;margin-top:10px;">播放器打不开时，可直接前往
+      <a href="https://www.bilibili.com/video/BV1RPYT6bEux/" target="_blank" rel="noopener">B 站观看</a>。</p>
   </section>
 
   <section>
@@ -118,5 +160,24 @@
   </footer>
 
 </div>
+
+<div class="lightbox" id="lb" aria-hidden="true"><img id="lb-img" alt="放大预览"></div>
+<script>
+  document.querySelectorAll('a.lb').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      document.getElementById('lb-img').src = a.getAttribute('href');
+      document.getElementById('lb').classList.add('open');
+    });
+  });
+  function closeLb() {
+    document.getElementById('lb').classList.remove('open');
+    document.getElementById('lb-img').src = '';
+  }
+  document.getElementById('lb').addEventListener('click', closeLb);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeLb();
+  });
+</script>
 </body>
 </html>
