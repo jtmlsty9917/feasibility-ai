@@ -1,4 +1,4 @@
-# FeasAI · 项目可行性研究 AI 助手（工作名，可改名）
+# FeasAI · 项目可行性研究 AI 助手
 
 > 状态：M1~M3 完成，**真实 API 冒烟已通过**（DeepSeek 实测：24 秒/2,364 tokens，
 > 41 项单测全绿，含项目档案记忆系统与客观质检卡，详见 docs/smoke-report.md）
